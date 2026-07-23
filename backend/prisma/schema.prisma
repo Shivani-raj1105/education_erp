@@ -1,0 +1,36 @@
+// Prisma Schema - Simplified Single Table Design
+// All faculty data in one table for simplicity
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model FacultyList {
+  employeeId       String   @id  // e.g. "EMP001"
+  name             String
+  email            String   @unique
+  phone            String?
+  designation      String
+  specialization   String?
+  qualification    String?
+  experience       Int      @default(0)  // years
+  joiningDate      DateTime
+  photo            String?
+  status           String   @default("ACTIVE")  // ACTIVE, INACTIVE, ON_LEAVE
+  coordinatorRoles String?  // comma-separated: "TIMETABLE_COORDINATOR,EXAM_COORDINATOR"
+  
+  // Auth & Department
+  username         String   @unique
+  passwordHash     String
+  departmentCode   String   // e.g. "CSE", "ECE"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("faculty_list")
+}
