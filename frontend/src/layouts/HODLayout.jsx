@@ -8,6 +8,7 @@ const titles = {
   '/hod/faculty':      'Faculty Management',
   '/hod/students':     'Student Management',
   '/hod/coordinators': 'Coordinator Management',
+  '/hod/activities':   'Student Activities',
 };
 
 export default function HODLayout() {

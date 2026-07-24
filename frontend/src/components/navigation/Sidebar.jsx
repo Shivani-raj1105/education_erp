@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import {
-  LayoutDashboard, Users, BookOpen, LogOut, GraduationCap, Award,
+  LayoutDashboard, Users, BookOpen, LogOut, GraduationCap, Award, Flame,
 } from 'lucide-react';
 import { useAuthStore } from '../../context/authStore';
 import { authService } from '../../services/auth.service';
@@ -15,6 +15,7 @@ const HOD_NAV = [
   { label: 'Faculty List',           path: '/hod/faculty',      icon: Users },
   { label: 'Student List',           path: '/hod/students',     icon: BookOpen },
   { label: 'Coordinator Management', path: '/hod/coordinators', icon: Award },
+  { label: 'Activities',             path: '/hod/activities',   icon: Flame },
 ];
 
 export function HODSidebar({ onClose }) {

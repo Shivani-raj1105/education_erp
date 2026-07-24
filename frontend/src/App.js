@@ -11,6 +11,7 @@ import FacultyProfile from './pages/hod/FacultyProfile';
 import AddEditFaculty from './pages/hod/AddEditFaculty';
 import StudentManagement from './pages/hod/StudentManagement';
 import CoordinatorManagement from './pages/hod/CoordinatorManagement';
+import ActivitiesPage from './pages/hod/activities/ActivitiesPage';
 import NotFound from './pages/NotFound';
 
 // Route guards
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="faculty/:id" element={<FacultyProfile />} />
           <Route path="students" element={<StudentManagement />} />
           <Route path="coordinators" element={<CoordinatorManagement />} />
+          <Route path="activities" element={<ActivitiesPage />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
