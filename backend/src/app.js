@@ -15,6 +15,12 @@ const authRoutes = require('./routes/auth.routes');
 const facultyRoutes = require('./routes/faculty.routes');
 const roleRoutes = require('./routes/role.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const technicalEventRoutes = require('./routes/technicalEvent.routes');
+const sportsActivityRoutes = require('./routes/sportsActivity.routes');
+const culturalActivityRoutes = require('./routes/culturalActivity.routes');
+const industryProjectRoutes = require('./routes/industryProject.routes');
+const hackathonRoutes = require('./routes/hackathon.routes');
+const otherCurricularRoutes = require('./routes/otherCurricular.routes');
 
 const app = express();
 
@@ -79,6 +85,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/faculty', facultyRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+// ─── Student Activities (legacy) ──────────────────────────────────────────────
+app.use('/api/activities/technical', technicalEventRoutes);
+app.use('/api/activities/sports', sportsActivityRoutes);
+app.use('/api/activities/cultural', culturalActivityRoutes);
+// ─── Enhanced Activities ──────────────────────────────────────────────────────
+app.use('/api/activities/industry-projects', industryProjectRoutes);
+app.use('/api/activities/hackathons', hackathonRoutes);
+app.use('/api/activities/other-curricular', otherCurricularRoutes);
 
 // ─── Error Handling ───────────────────────────────────────────────────────────
 app.use(notFound);

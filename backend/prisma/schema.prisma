@@ -34,3 +34,134 @@ model FacultyList {
 
   @@map("faculty_list")
 }
+
+// ─── Student Activities ───────────────────────────────────────────────────────
+
+model TechnicalEvent {
+  id             String   @id @default(uuid())
+  studentName    String
+  usn            String   // USN / Roll Number
+  department     String
+  section        String
+  semester       Int
+  eventType      String   // e.g. "Hackathon", "Project", "Paper Presentation", "Coding Contest"
+  projectName    String   // Project / Event Name
+  projectDomain  String
+  academicYear   String   // e.g. "2024-25"
+  facultyMentor  String?  // optional
+  projectStatus  String   @default("ONGOING")  // ONGOING, COMPLETED
+  departmentCode String   // dept scoping (HOD's dept)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("technical_events")
+}
+
+model SportsActivity {
+  id               String   @id @default(uuid())
+  studentName      String
+  usn              String
+  department       String
+  section          String
+  semester         Int
+  sportName        String
+  competitionLevel String   // e.g. "District", "State", "National", "International"
+  positionMedal    String?  // e.g. "Gold", "1st Place"
+  academicYear     String
+  departmentCode   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sports_activities")
+}
+
+model CulturalActivity {
+  id                  String   @id @default(uuid())
+  studentName         String
+  usn                 String
+  department          String
+  section             String
+  semester            Int
+  culturalActivityName String  // e.g. "Dance", "Singing", "Drama"
+  eventName           String   // e.g. "Annual Day 2024"
+  positionPrize       String?  // e.g. "1st Prize", "Best Performer"
+  academicYear        String
+  departmentCode      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("cultural_activities")
+}
+
+// ─── Enhanced Activities ──────────────────────────────────────────────────────
+
+// Real-Time Industry Projects (one project → many students)
+model IndustryProject {
+  id             String   @id @default(uuid())
+  projectName    String
+  status         String   @default("ONGOING")  // ONGOING, COMPLETED
+  departmentCode String
+
+  students       IndustryProjectStudent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("industry_projects")
+}
+
+model IndustryProjectStudent {
+  id          String   @id @default(uuid())
+  projectId   String
+  studentName String
+  usn         String
+  semester    Int
+  section     String
+
+  project     IndustryProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("industry_project_students")
+}
+
+// Hackathons
+model Hackathon {
+  id             String   @id @default(uuid())
+  studentName    String
+  usn            String
+  semester       Int
+  section        String
+  hackathonName  String
+  position       String   // e.g. "1st Place", "Runner Up", "Participant"
+  year           Int
+  departmentCode String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("hackathons")
+}
+
+// Other Curricular Activities (replaces older CulturalActivity in the new hierarchy)
+model OtherCurricularActivity {
+  id               String   @id @default(uuid())
+  studentName      String
+  usn              String
+  semester         Int
+  section          String
+  eventName        String
+  organizingCollege String
+  achievement      String?
+  year             Int
+  departmentCode   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("other_curricular_activities")
+}
