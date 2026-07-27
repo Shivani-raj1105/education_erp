@@ -1,0 +1,24 @@
+2026-07-24 12:21:23 [ERROR]: ❌ Database connection failed: Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+PrismaClientInitializationError: Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at t (C:\hod backend\node_modules\@prisma\client\runtime\library.js:112:2488)
+    at async Server.<anonymous> (C:\hod backend\src\server.js:18:5)
+2026-07-24 12:23:09 [ERROR]: ❌ Database connection failed: Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+PrismaClientInitializationError: Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at t (C:\hod backend\node_modules\@prisma\client\runtime\library.js:112:2488)
+    at async Server.<anonymous> (C:\hod backend\src\server.js:18:5)
+2026-07-25 21:11:19 [ERROR]: ❌ Database connection failed: Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+PrismaClientInitializationError: Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at t (C:\hod backend\node_modules\@prisma\client\runtime\library.js:112:2488)
+    at async Server.<anonymous> (C:\hod backend\src\server.js:18:5)

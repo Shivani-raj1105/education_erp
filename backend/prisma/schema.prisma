@@ -165,3 +165,164 @@ model OtherCurricularActivity {
 
   @@map("other_curricular_activities")
 }
+
+// ─── Student List Module ──────────────────────────────────────────────────────
+
+// Stores the current academic year and semester type (ODD/EVEN)
+model AcademicSettings {
+  id                  Int      @id @default(autoincrement())
+  academicYear        String   @map("academic_year") @db.VarChar(20)
+  currentSemesterType String   @map("current_semester_type") @db.VarChar(10)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("academic_settings")
+}
+
+// Semester numbers 1–8
+model Semester {
+  id             Int      @id @default(autoincrement())
+  semesterNumber Int      @unique @map("semester_number")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  sections   Section[]
+  subjects   Subject[]
+  timetables Timetable[]
+
+  @@map("semesters")
+}
+
+// Sections per semester (A, B, C, D)
+model Section {
+  id          Int      @id @default(autoincrement())
+  semesterId  Int      @map("semester_id")
+  sectionName String   @map("section_name") @db.VarChar(10)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  semester   Semester   @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  students   Student[]
+  timetables Timetable[]
+
+  @@unique([semesterId, sectionName])
+  @@index([semesterId])
+  @@map("sections")
+}
+
+// Faculty for the student-list module
+model SlFaculty {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  email     String   @unique @db.VarChar(100)
+  password  String   @db.VarChar(255)
+  role      String   @default("FACULTY") @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  subjectMappings SubjectFaculty[]
+  timetables      Timetable[]
+
+  @@map("sl_faculties")
+}
+
+// Subjects per semester
+model Subject {
+  id          Int      @id @default(autoincrement())
+  subjectName String   @map("subject_name") @db.VarChar(100)
+  subjectCode String   @unique @map("subject_code") @db.VarChar(20)
+  semesterId  Int      @map("semester_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  semester        Semester         @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  subjectMappings SubjectFaculty[]
+  timetables      Timetable[]
+
+  @@index([semesterId])
+  @@map("subjects")
+}
+
+// Subject to Faculty mapping
+model SubjectFaculty {
+  id        Int      @id @default(autoincrement())
+  subjectId Int      @map("subject_id")
+  facultyId Int      @map("faculty_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  subject Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty SlFaculty @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, facultyId])
+  @@index([subjectId])
+  @@map("subject_faculties")
+}
+
+// Student details
+model Student {
+  id         Int      @id @default(autoincrement())
+  usn        String   @unique @db.VarChar(20)
+  name       String   @db.VarChar(100)
+  phone      String   @db.VarChar(15)
+  email      String   @unique @db.VarChar(100)
+  semesterId Int      @map("semester_id")
+  sectionId  Int      @map("section_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  section     Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  attendance  Attendance?
+  performance Performance?
+
+  @@index([semesterId])
+  @@index([sectionId])
+  @@map("students")
+}
+
+// Timetable (uploaded by Faculty Portal team, read-only from this module)
+model Timetable {
+  id         Int      @id @default(autoincrement())
+  day        String   @db.VarChar(20)
+  period     Int
+  subjectId  Int      @map("subject_id")
+  facultyId  Int      @map("faculty_id")
+  semesterId Int      @map("semester_id")
+  sectionId  Int      @map("section_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  subject  Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty  SlFaculty @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  semester Semester  @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  section  Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([day, period, semesterId, sectionId])
+  @@index([semesterId, sectionId])
+  @@map("timetables")
+}
+
+// Attendance managed by Team-3, this module only reads
+model Attendance {
+  id                   Int      @id @default(autoincrement())
+  studentId            Int      @unique @map("student_id")
+  attendancePercentage Float    @map("attendance_percentage") @db.DoublePrecision
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("attendances")
+}
+
+// Performance managed by Team-3, this module only reads
+model Performance {
+  id                    Int      @id @default(autoincrement())
+  studentId             Int      @unique @map("student_id")
+  performancePercentage Float    @map("performance_percentage") @db.DoublePrecision
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("performances")
+}

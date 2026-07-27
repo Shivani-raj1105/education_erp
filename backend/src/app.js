@@ -22,6 +22,10 @@ const industryProjectRoutes = require('./routes/industryProject.routes');
 const hackathonRoutes = require('./routes/hackathon.routes');
 const otherCurricularRoutes = require('./routes/otherCurricular.routes');
 
+// ─── Student List Module ───────────────────────────────────────────────────────
+const slAuthRoutes       = require('./routes/slAuth.routes');
+const studentListRoutes  = require('./routes/studentList.routes');
+
 const app = express();
 
 // ─── Security Middleware ──────────────────────────────────────────────────────
@@ -93,6 +97,10 @@ app.use('/api/activities/cultural', culturalActivityRoutes);
 app.use('/api/activities/industry-projects', industryProjectRoutes);
 app.use('/api/activities/hackathons', hackathonRoutes);
 app.use('/api/activities/other-curricular', otherCurricularRoutes);
+
+// ─── Student List Module Routes ───────────────────────────────────────────────
+app.use('/api/hod/auth',         slAuthRoutes);
+app.use('/api/hod/student-list', studentListRoutes);
 
 // ─── Error Handling ───────────────────────────────────────────────────────────
 app.use(notFound);
