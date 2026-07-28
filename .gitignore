@@ -1,0 +1,24 @@
+# Root-level ignores
+
+# Environment files — never commit real secrets
+.env
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Build output
+build/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (runtime files)
+uploads/

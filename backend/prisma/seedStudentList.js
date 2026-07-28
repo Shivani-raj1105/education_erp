@@ -1,8 +1,12 @@
 /**
- * Seed file for the Student List Module tables.
- * Run with: node prisma/seedStudentList.js
+ * Full seed for the Student List Module.
+ * Covers all 8 semesters × 4 sections (A–D) with:
+ *   - Subjects per semester
+ *   - Subject → Faculty assignment
+ *   - Weekly timetable (Mon–Fri, 6 periods)
+ *   - 12 students per section (with attendance & performance)
  *
- * Run AFTER: npx prisma migrate dev
+ * Run with: node prisma/seedStudentList.js
  */
 
 const { PrismaClient } = require('@prisma/client');
@@ -10,197 +14,337 @@ const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
-async function main() {
-  console.log('🌱 Seeding Student List Module tables...\n');
+// ─── Subject catalogue per semester ──────────────────────────────────────────
+const SEMESTER_SUBJECTS = {
+  1: [
+    { name: 'Engineering Mathematics I',      code: 'MA101' },
+    { name: 'Engineering Physics',            code: 'PH101' },
+    { name: 'Basic Electronics',              code: 'EC101' },
+    { name: 'Programming in C',               code: 'CS101' },
+    { name: 'Engineering Drawing',            code: 'ME101' },
+  ],
+  2: [
+    { name: 'Engineering Mathematics II',     code: 'MA201' },
+    { name: 'Engineering Chemistry',          code: 'CH201' },
+    { name: 'Data Structures',                code: 'CS201' },
+    { name: 'Digital Electronics',            code: 'EC201' },
+    { name: 'Communication Skills',           code: 'HS201' },
+  ],
+  3: [
+    { name: 'Discrete Mathematics',           code: 'MA301' },
+    { name: 'Object Oriented Programming',    code: 'CS301' },
+    { name: 'Computer Organization',          code: 'CS302' },
+    { name: 'Microprocessors',                code: 'EC301' },
+    { name: 'Environmental Science',          code: 'HS301' },
+  ],
+  4: [
+    { name: 'Engineering Mathematics III',    code: 'MA401' },
+    { name: 'Design & Analysis of Algorithms',code: 'CS401' },
+    { name: 'Operating Systems',              code: 'CS402' },
+    { name: 'Software Engineering',           code: 'CS403' },
+    { name: 'Computer Networks I',            code: 'CS404' },
+  ],
+  5: [
+    { name: 'Automata Theory',                code: 'CS501' },
+    { name: 'Java Programming',               code: 'CS502' },
+    { name: 'Database Management Systems',    code: 'CS503' },
+    { name: 'Computer Networks II',           code: 'CS504' },
+    { name: 'Web Technologies',               code: 'CS505' },
+  ],
+  6: [
+    { name: 'Compiler Design',                code: 'CS601' },
+    { name: 'Artificial Intelligence',        code: 'CS602' },
+    { name: 'Cloud Computing',                code: 'CS603' },
+    { name: 'Information Security',           code: 'CS604' },
+    { name: 'Mobile Application Development', code: 'CS605' },
+  ],
+  7: [
+    { name: 'Machine Learning',               code: 'CS701' },
+    { name: 'Big Data Analytics',             code: 'CS702' },
+    { name: 'Internet of Things',             code: 'CS703' },
+    { name: 'Blockchain Technology',          code: 'CS704' },
+    { name: 'Deep Learning',                  code: 'CS705' },
+  ],
+  8: [
+    { name: 'Project Work',                   code: 'CS801' },
+    { name: 'Industry Internship',            code: 'CS802' },
+    { name: 'Technical Seminar',              code: 'CS803' },
+    { name: 'Entrepreneurship',               code: 'CS804' },
+    { name: 'Research Methodology',           code: 'CS805' },
+  ],
+};
 
-  // ─── 1. Academic Settings ───────────────────────────────────────────────────
+// ─── Faculty pool (12 teaching staff + 1 HOD) ────────────────────────────────
+const FACULTY_DATA = [
+  { name: 'Dr. S. Kumar',        email: 'hod@college.edu',      password: 'hod@1234',      role: 'HOD'     },
+  { name: 'Dr. Ravi Sharma',     email: 'ravi@college.edu',     password: 'ravi@1234',     role: 'FACULTY' },
+  { name: 'Mr. Arjun Nair',      email: 'arjun@college.edu',    password: 'arjun@1234',    role: 'FACULTY' },
+  { name: 'Ms. Sneha Iyer',      email: 'sneha@college.edu',    password: 'sneha@1234',    role: 'FACULTY' },
+  { name: 'Mr. Kiran Rao',       email: 'kiran@college.edu',    password: 'kiran@1234',    role: 'FACULTY' },
+  { name: 'Dr. Meena Pillai',    email: 'meena@college.edu',    password: 'meena@1234',    role: 'FACULTY' },
+  { name: 'Mr. Suresh Babu',     email: 'suresh@college.edu',   password: 'suresh@1234',   role: 'FACULTY' },
+  { name: 'Ms. Ananya Das',      email: 'ananya@college.edu',   password: 'ananya@1234',   role: 'FACULTY' },
+  { name: 'Dr. Vijay Menon',     email: 'vijay@college.edu',    password: 'vijay@1234',    role: 'FACULTY' },
+  { name: 'Ms. Priya Reddy',     email: 'priya@college.edu',    password: 'priya@1234',    role: 'FACULTY' },
+  { name: 'Mr. Rohit Joshi',     email: 'rohit@college.edu',    password: 'rohit@1234',    role: 'FACULTY' },
+  { name: 'Dr. Lakshmi Nair',    email: 'lakshmi@college.edu',  password: 'lakshmi@1234',  role: 'FACULTY' },
+  { name: 'Mr. Aditya Varma',    email: 'aditya@college.edu',   password: 'aditya@1234',   role: 'FACULTY' },
+];
+
+// ─── Assign faculty to subjects round-robin per semester ─────────────────────
+// Returns { subjectCode → facultyName }
+function assignFaculty(semNum, subjects, facultyNames) {
+  // Offset by semester so different semesters get different primary faculty
+  const offset = (semNum - 1) * 2;
+  const map = {};
+  subjects.forEach((sub, i) => {
+    map[sub.code] = facultyNames[(offset + i) % facultyNames.length];
+  });
+  return map;
+}
+
+// ─── Build a 5-day × 6-period timetable for a given subject set ──────────────
+const DAYS    = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const PERIODS = [1, 2, 3, 4, 5, 6];
+
+function buildTimetable(subjects, facultyAssignment) {
+  // Spread subjects across the 30 slots (Mon-Fri × 6 periods)
+  // Each subject appears ~6 times per week
+  const slots = [];
+  let subIdx = 0;
+  for (const day of DAYS) {
+    for (const period of PERIODS) {
+      const sub = subjects[subIdx % subjects.length];
+      slots.push({
+        day,
+        period,
+        code: sub.code,
+        fac: facultyAssignment[sub.code],
+      });
+      subIdx++;
+    }
+  }
+  return slots;
+}
+
+// ─── Student name pool (mix of Indian names) ─────────────────────────────────
+const FIRST_NAMES = [
+  'Aarav','Ananya','Arjun','Bhavya','Chetan','Deepika','Eshan','Farhan',
+  'Gayatri','Harish','Indira','Jayesh','Kavitha','Lokesh','Manisha','Naveen',
+  'Ojasvi','Pooja','Rahul','Sanjana','Tejas','Usha','Vikram','Yamini',
+  'Zara','Akash','Bharat','Chandni','Dinesh','Esha','Faisal','Geetha',
+  'Hitesh','Ishaan','Jaya','Karthik','Leena','Mohan','Nidhi','Om',
+  'Pallavi','Qasim','Ritu','Sachin','Tara','Uma','Varun','Waqar',
+];
+
+const LAST_NAMES = [
+  'Sharma','Verma','Nair','Iyer','Rao','Pillai','Kumar','Singh',
+  'Das','Menon','Reddy','Joshi','Bhat','Gupta','Patel','Mehta',
+  'Shah','Mishra','Tiwari','Pandey','Chauhan','Yadav','Dubey','Sinha',
+];
+
+// Deterministic student generator to avoid random collisions
+function generateStudents(semNum, sectionName) {
+  const sectionIdx = ['A','B','C','D'].indexOf(sectionName);
+  const year = 2026 - Math.floor((semNum - 1) / 2); // batch year
+  const shortYear = String(year).slice(2);
+  const students = [];
+  for (let i = 0; i < 12; i++) {
+    const nameIdx   = ((semNum - 1) * 48 + sectionIdx * 12 + i) % FIRST_NAMES.length;
+    const lastIdx   = ((semNum - 1) * 12 + sectionIdx * 3  + i) % LAST_NAMES.length;
+    const usn       = `1RV${shortYear}CS${String((semNum - 1) * 48 + sectionIdx * 12 + i + 1).padStart(3,'0')}`;
+    const firstName = FIRST_NAMES[nameIdx];
+    const lastName  = LAST_NAMES[lastIdx];
+    const name      = `${firstName} ${lastName}`;
+    // Make email unique by appending semNum + sectionIdx + i
+    const emailUser = `${firstName.toLowerCase()}.${lastName.toLowerCase()}.s${semNum}${sectionName.toLowerCase()}${i}`;
+    // Attendance: range 60–98, varied per student
+    const att  = parseFloat((60 + ((semNum * 7 + sectionIdx * 4 + i * 3) % 38)).toFixed(1));
+    const perf = parseFloat((55 + ((semNum * 5 + sectionIdx * 6 + i * 4) % 43)).toFixed(1));
+    students.push({
+      usn,
+      name,
+      phone: `9${String(8000000000 + semNum * 1000000 + sectionIdx * 100000 + i * 1000).slice(1)}`,
+      email: `${emailUser}@student.edu`,
+      att,
+      perf,
+    });
+  }
+  return students;
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+async function main() {
+  console.log('🌱 Full Student List Module seed — all semesters & sections\n');
+
+  // 1. Academic Settings
   console.log('📅 Academic Settings...');
   await prisma.academicSettings.upsert({
-    where: { id: 1 },
-    update: {},
-    create: { academicYear: '2026-27', currentSemesterType: 'ODD' }
+    where:  { id: 1 },
+    update: { academicYear: '2026-27', currentSemesterType: 'ODD' },
+    create: { academicYear: '2026-27', currentSemesterType: 'ODD' },
   });
-  console.log('   ✓ Year: 2026-27 | Type: ODD');
+  console.log('   ✓ 2026-27 | ODD semester');
 
-  // ─── 2. Semesters ───────────────────────────────────────────────────────────
+  // 2. Semesters 1–8
   console.log('\n📚 Semesters...');
   const semesters = {};
-  for (const num of [1, 2, 3, 4, 5, 6, 7, 8]) {
-    const s = await prisma.semester.upsert({
-      where: { semesterNumber: num },
+  for (const num of [1,2,3,4,5,6,7,8]) {
+    semesters[num] = await prisma.semester.upsert({
+      where:  { semesterNumber: num },
       update: {},
-      create: { semesterNumber: num }
+      create: { semesterNumber: num },
     });
-    semesters[num] = s;
-    console.log(`   ✓ Semester ${num}`);
   }
+  console.log('   ✓ Semesters 1–8');
 
-  // ─── 3. SlFaculty (HOD + teaching staff) ───────────────────────────────────
+  // 3. Faculty
   console.log('\n👨‍🏫 Faculty...');
-  const SALT = 10;
-  const facultyData = [
-    { name: 'Dr. S. Kumar',    email: 'hod@college.edu',   password: 'hod@1234',    role: 'HOD'     },
-    { name: 'Dr. Ravi Sharma', email: 'ravi@college.edu',  password: 'ravi@1234',   role: 'FACULTY' },
-    { name: 'Mr. Arjun Nair',  email: 'arjun@college.edu', password: 'arjun@1234',  role: 'FACULTY' },
-    { name: 'Ms. Sneha Iyer',  email: 'sneha@college.edu', password: 'sneha@1234',  role: 'FACULTY' },
-    { name: 'Mr. Kiran Rao',   email: 'kiran@college.edu', password: 'kiran@1234',  role: 'FACULTY' },
-  ];
   const faculties = {};
-  for (const f of facultyData) {
-    const hashed = await bcrypt.hash(f.password, SALT);
-    const fac = await prisma.slFaculty.upsert({
-      where: { email: f.email },
+  for (const f of FACULTY_DATA) {
+    const hashed = await bcrypt.hash(f.password, 10);
+    const rec = await prisma.slFaculty.upsert({
+      where:  { email: f.email },
       update: {},
-      create: { name: f.name, email: f.email, password: hashed, role: f.role }
+      create: { name: f.name, email: f.email, password: hashed, role: f.role },
     });
-    faculties[f.name] = fac;
-    console.log(`   ✓ ${f.role}: ${f.name}  (${f.email} / ${f.password})`);
+    faculties[f.name] = rec;
+    console.log(`   ✓ ${f.role.padEnd(7)} ${f.name}  (${f.email} / ${f.password})`);
   }
+  const facultyNames = FACULTY_DATA.filter(f => f.role === 'FACULTY').map(f => f.name);
 
-  // ─── 4. Sections (A–D for every semester) ──────────────────────────────────
+  // 4. Sections A–D for every semester
   console.log('\n🏫 Sections...');
   const sections = {};
-  for (const semNum of [1, 2, 3, 4, 5, 6, 7, 8]) {
+  for (const semNum of [1,2,3,4,5,6,7,8]) {
     sections[semNum] = {};
-    for (const name of ['A', 'B', 'C', 'D']) {
-      const sec = await prisma.section.upsert({
-        where: { semesterId_sectionName: { semesterId: semesters[semNum].id, sectionName: name } },
+    for (const sec of ['A','B','C','D']) {
+      sections[semNum][sec] = await prisma.section.upsert({
+        where:  { semesterId_sectionName: { semesterId: semesters[semNum].id, sectionName: sec } },
         update: {},
-        create: { semesterId: semesters[semNum].id, sectionName: name }
+        create: { semesterId: semesters[semNum].id, sectionName: sec },
       });
-      sections[semNum][name] = sec;
     }
-    console.log(`   ✓ Semester ${semNum}: A, B, C, D`);
   }
+  console.log('   ✓ A, B, C, D for every semester');
 
-  // ─── 5. Subjects for Semester 5 ────────────────────────────────────────────
-  console.log('\n📖 Subjects (Semester 5)...');
-  const sem5Subjects = [
-    { name: 'Operating Systems',           code: 'CS501' },
-    { name: 'Java Programming',            code: 'CS502' },
-    { name: 'Database Management Systems', code: 'CS503' },
-    { name: 'Computer Networks',           code: 'CS504' },
-  ];
-  const subjects = {};
-  for (const sub of sem5Subjects) {
-    const s = await prisma.subject.upsert({
-      where: { subjectCode: sub.code },
-      update: {},
-      create: { subjectName: sub.name, subjectCode: sub.code, semesterId: semesters[5].id }
-    });
-    subjects[sub.code] = s;
-    console.log(`   ✓ ${sub.code}: ${sub.name}`);
-  }
+  // 5. Subjects + faculty assignments + timetables per semester
+  console.log('\n📖 Subjects, faculty assignments & timetables...');
+  const subjects = {}; // subjects[semNum][code] = prisma record
 
-  // ─── 6. Subject → Faculty mapping ──────────────────────────────────────────
-  console.log('\n🔗 Subject–Faculty Mapping...');
-  const mappings = [
-    { code: 'CS501', facultyName: 'Dr. Ravi Sharma' },
-    { code: 'CS502', facultyName: 'Mr. Arjun Nair'  },
-    { code: 'CS503', facultyName: 'Ms. Sneha Iyer'  },
-    { code: 'CS504', facultyName: 'Mr. Kiran Rao'   },
-  ];
-  for (const m of mappings) {
-    await prisma.subjectFaculty.upsert({
-      where: { subjectId_facultyId: { subjectId: subjects[m.code].id, facultyId: faculties[m.facultyName].id } },
-      update: {},
-      create: { subjectId: subjects[m.code].id, facultyId: faculties[m.facultyName].id }
-    });
-    console.log(`   ✓ ${m.code} → ${m.facultyName}`);
-  }
+  for (const semNum of [1,2,3,4,5,6,7,8]) {
+    const semSubjects = SEMESTER_SUBJECTS[semNum];
+    subjects[semNum] = {};
 
-  // ─── 7. Timetable (Semester 5, Section B) ──────────────────────────────────
-  console.log('\n📅 Timetable (Sem 5 / Section B)...');
-  const ttEntries = [
-    { day: 'Monday',    period: 1, code: 'CS501', fac: 'Dr. Ravi Sharma' },
-    { day: 'Monday',    period: 2, code: 'CS502', fac: 'Mr. Arjun Nair'  },
-    { day: 'Monday',    period: 3, code: 'CS503', fac: 'Ms. Sneha Iyer'  },
-    { day: 'Tuesday',   period: 1, code: 'CS504', fac: 'Mr. Kiran Rao'   },
-    { day: 'Tuesday',   period: 2, code: 'CS501', fac: 'Dr. Ravi Sharma' },
-    { day: 'Tuesday',   period: 3, code: 'CS502', fac: 'Mr. Arjun Nair'  },
-    { day: 'Wednesday', period: 1, code: 'CS503', fac: 'Ms. Sneha Iyer'  },
-    { day: 'Wednesday', period: 2, code: 'CS504', fac: 'Mr. Kiran Rao'   },
-    { day: 'Wednesday', period: 3, code: 'CS501', fac: 'Dr. Ravi Sharma' },
-    { day: 'Thursday',  period: 1, code: 'CS502', fac: 'Mr. Arjun Nair'  },
-    { day: 'Thursday',  period: 2, code: 'CS503', fac: 'Ms. Sneha Iyer'  },
-    { day: 'Thursday',  period: 3, code: 'CS504', fac: 'Mr. Kiran Rao'   },
-    { day: 'Friday',    period: 1, code: 'CS501', fac: 'Dr. Ravi Sharma' },
-    { day: 'Friday',    period: 2, code: 'CS502', fac: 'Mr. Arjun Nair'  },
-    { day: 'Friday',    period: 3, code: 'CS503', fac: 'Ms. Sneha Iyer'  },
-  ];
-  for (const e of ttEntries) {
-    await prisma.timetable.upsert({
-      where: { day_period_semesterId_sectionId: {
-        day: e.day, period: e.period,
-        semesterId: semesters[5].id, sectionId: sections[5]['B'].id
-      }},
-      update: {},
-      create: {
-        day: e.day, period: e.period,
-        subjectId: subjects[e.code].id,
-        facultyId: faculties[e.fac].id,
-        semesterId: semesters[5].id,
-        sectionId: sections[5]['B'].id
+    // Upsert subjects
+    for (const sub of semSubjects) {
+      subjects[semNum][sub.code] = await prisma.subject.upsert({
+        where:  { subjectCode: sub.code },
+        update: {},
+        create: { subjectName: sub.name, subjectCode: sub.code, semesterId: semesters[semNum].id },
+      });
+    }
+
+    // Assign faculty to subjects
+    const assignment = assignFaculty(semNum, semSubjects, facultyNames);
+
+    // Upsert SubjectFaculty mappings
+    for (const sub of semSubjects) {
+      const facultyName = assignment[sub.code];
+      await prisma.subjectFaculty.upsert({
+        where: {
+          subjectId_facultyId: {
+            subjectId: subjects[semNum][sub.code].id,
+            facultyId: faculties[facultyName].id,
+          },
+        },
+        update: {},
+        create: {
+          subjectId: subjects[semNum][sub.code].id,
+          facultyId: faculties[facultyName].id,
+        },
+      });
+    }
+
+    // Build timetable template for this semester
+    const ttTemplate = buildTimetable(semSubjects, assignment);
+
+    // Apply the same timetable pattern to all 4 sections
+    for (const secName of ['A','B','C','D']) {
+      const sectionId = sections[semNum][secName].id;
+      for (const slot of ttTemplate) {
+        await prisma.timetable.upsert({
+          where: {
+            day_period_semesterId_sectionId: {
+              day: slot.day,
+              period: slot.period,
+              semesterId: semesters[semNum].id,
+              sectionId,
+            },
+          },
+          update: {},
+          create: {
+            day:        slot.day,
+            period:     slot.period,
+            subjectId:  subjects[semNum][slot.code].id,
+            facultyId:  faculties[slot.fac].id,
+            semesterId: semesters[semNum].id,
+            sectionId,
+          },
+        });
       }
-    });
+    }
+
+    console.log(`   ✓ Semester ${semNum}: ${semSubjects.length} subjects, ${ttTemplate.length} slots/section × 4 sections`);
   }
-  console.log(`   ✓ ${ttEntries.length} slots`);
 
-  // ─── 8. Students (Semester 5, Section B) ───────────────────────────────────
-  console.log('\n👩‍🎓 Students (Sem 5 / Section B)...');
-  const studentData = [
-    { usn: '1RV22CS001', name: 'Rahul Sharma',   phone: '9876543210', email: 'rahul@student.edu',   att: 91.5, perf: 84.0 },
-    { usn: '1RV22CS002', name: 'Anjali Verma',   phone: '9988776655', email: 'anjali@student.edu',  att: 95.0, perf: 89.5 },
-    { usn: '1RV22CS003', name: 'Kiran Nair',     phone: '8877665544', email: 'kiran@student.edu',   att: 78.0, perf: 72.0 },
-    { usn: '1RV22CS004', name: 'Priya Iyer',     phone: '7766554433', email: 'priya@student.edu',   att: 88.5, perf: 91.0 },
-    { usn: '1RV22CS005', name: 'Arun Kumar',     phone: '6655443322', email: 'arun@student.edu',    att: 65.0, perf: 61.0 },
-    { usn: '1RV22CS006', name: 'Sneha Rao',      phone: '9123456789', email: 'sneha.r@student.edu', att: 97.0, perf: 93.0 },
-    { usn: '1RV22CS007', name: 'Deepak Menon',   phone: '9234567890', email: 'deepak@student.edu',  att: 82.0, perf: 76.0 },
-    { usn: '1RV22CS008', name: 'Meera Singh',    phone: '9345678901', email: 'meera@student.edu',   att: 90.0, perf: 87.5 },
-    { usn: '1RV22CS009', name: 'Suresh Pillai',  phone: '9456789012', email: 'suresh@student.edu',  att: 73.5, perf: 68.0 },
-    { usn: '1RV22CS010', name: 'Lakshmi Das',    phone: '9567890123', email: 'lakshmi@student.edu', att: 92.0, perf: 88.0 },
-    { usn: '1RV22CS011', name: 'Vikram Reddy',   phone: '9678901234', email: 'vikram@student.edu',  att: 85.0, perf: 79.0 },
-    { usn: '1RV22CS012', name: 'Divya Krishnan', phone: '9789012345', email: 'divya@student.edu',   att: 94.5, perf: 90.0 },
-    { usn: '1RV22CS013', name: 'Ravi Prasad',    phone: '9890123456', email: 'ravi.p@student.edu',  att: 69.0, perf: 63.5 },
-    { usn: '1RV22CS014', name: 'Nisha Joshi',    phone: '9901234567', email: 'nisha@student.edu',   att: 88.0, perf: 82.0 },
-    { usn: '1RV22CS015', name: 'Arjun Bhat',     phone: '9012345678', email: 'arjun.b@student.edu', att: 96.0, perf: 94.0 },
-  ];
-
-  for (const s of studentData) {
-    const student = await prisma.student.upsert({
-      where: { usn: s.usn },
-      update: {},
-      create: {
-        usn: s.usn, name: s.name, phone: s.phone, email: s.email,
-        semesterId: semesters[5].id, sectionId: sections[5]['B'].id
+  // 6. Students for every semester × every section
+  console.log('\n👩‍🎓 Students (12 per section × 4 sections × 8 semesters = 384 total)...');
+  for (const semNum of [1,2,3,4,5,6,7,8]) {
+    for (const secName of ['A','B','C','D']) {
+      const sectionId  = sections[semNum][secName].id;
+      const studentList = generateStudents(semNum, secName);
+      for (const s of studentList) {
+        const student = await prisma.student.upsert({
+          where:  { usn: s.usn },
+          update: {},
+          create: {
+            usn:       s.usn,
+            name:      s.name,
+            phone:     s.phone,
+            email:     s.email,
+            semesterId: semesters[semNum].id,
+            sectionId,
+          },
+        });
+        await prisma.attendance.upsert({
+          where:  { studentId: student.id },
+          update: {},
+          create: { studentId: student.id, attendancePercentage: s.att },
+        });
+        await prisma.performance.upsert({
+          where:  { studentId: student.id },
+          update: {},
+          create: { studentId: student.id, performancePercentage: s.perf },
+        });
       }
-    });
-    await prisma.attendance.upsert({
-      where: { studentId: student.id },
-      update: {},
-      create: { studentId: student.id, attendancePercentage: s.att }
-    });
-    await prisma.performance.upsert({
-      where: { studentId: student.id },
-      update: {},
-      create: { studentId: student.id, performancePercentage: s.perf }
-    });
-    console.log(`   ✓ ${s.usn} - ${s.name}`);
+      console.log(`   ✓ Sem ${semNum} / Sec ${secName}: ${studentList.length} students`);
+    }
   }
 
-  console.log('\n✅ Student List Module seeding done!\n');
-  console.log('────────────────────────────────────────────────────');
-  console.log('🔑 Login  →  POST /api/hod/auth/login');
-  console.log('   HOD     : hod@college.edu   / hod@1234');
-  console.log('   Faculty : ravi@college.edu  / ravi@1234');
-  console.log('────────────────────────────────────────────────────');
-  console.log('📌 Test APIs (attach JWT from login):');
-  console.log('   GET /api/hod/student-list/semesters');
-  console.log('   GET /api/hod/student-list/5/sections');
-  console.log('   GET /api/hod/student-list/5/B');
-  console.log('────────────────────────────────────────────────────\n');
+  console.log('\n✅ Full seed complete!\n');
+  console.log('═══════════════════════════════════════════════════');
+  console.log('  Semesters  : 1 – 8');
+  console.log('  Sections   : A, B, C, D  (each semester)');
+  console.log('  Subjects   : 5 per semester  (40 total)');
+  console.log('  Timetable  : 30 slots / section  (960 total)');
+  console.log('  Students   : 12 / section  (384 total)');
+  console.log('───────────────────────────────────────────────────');
+  console.log('🔑 HOD login → POST /api/auth/login');
+  console.log('   dept: CSE  |  username: hod_cse  |  password: hod@cse123');
+  console.log('═══════════════════════════════════════════════════\n');
 }
 
 main()
-  .catch(e => { console.error('❌ Seed failed:', e); process.exit(1); })
+  .catch(e => { console.error('\n❌ Seed failed:', e.message); process.exit(1); })
   .finally(() => prisma.$disconnect());

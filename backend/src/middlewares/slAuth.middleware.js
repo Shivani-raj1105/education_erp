@@ -14,7 +14,17 @@ const slAuthenticate = (req, res, next) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.slUser = { id: decoded.id, email: decoded.email, role: decoded.role, name: decoded.name };
+    // Support both token formats:
+    //   System A (main portal): { roles: ['FACULTY','HOD'], isHOD: true, username, ... }
+    //   System B (student-list): { role: 'HOD', email, name, ... }
+    req.slUser = {
+      id:    decoded.id,
+      email: decoded.email,
+      name:  decoded.name,
+      role:  decoded.role,    // System B single-string role
+      roles: decoded.roles,   // System A roles array
+      isHOD: decoded.isHOD,   // System A HOD flag
+    };
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
@@ -25,10 +35,17 @@ const slAuthenticate = (req, res, next) => {
 };
 
 /**
- * Ensures the authenticated user has the HOD role
+ * Ensures the authenticated user has the HOD role.
+ * Accepts both token formats from System A (main portal) and System B (student-list).
  */
 const slRequireHOD = (req, res, next) => {
-  if (!req.slUser || req.slUser.role !== 'HOD') {
+  const u = req.slUser;
+  const isHOD =
+    u?.role === 'HOD' ||                               // System B token
+    u?.isHOD === true ||                               // System A token flag
+    (Array.isArray(u?.roles) && u.roles.includes('HOD')); // System A token array
+
+  if (!isHOD) {
     return errorResponse(res, 'Access denied. HOD role required.', 403);
   }
   next();

@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Dept Portal",
+    "slug": "education-erp-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "deptportal",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.educationerp.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#4f46e5"
+      },
+      "package": "com.educationerp.mobile"
+    },
+    "plugins": ["expo-router", "expo-secure-store"]
+  }
+}

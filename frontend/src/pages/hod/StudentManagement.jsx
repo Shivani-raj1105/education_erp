@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ChevronRight, ArrowLeft, Loader2, AlertCircle,
-  Clock, Link2, Users, BookOpen, GraduationCap,
+  Clock, Link2, Users, GraduationCap,
 } from 'lucide-react';
 import SearchBar from '../../components/ui/SearchBar';
 import Pagination from '../../components/ui/Pagination';
@@ -156,13 +156,18 @@ function SectionView({ semester, onSelect }) {
 
 // ─── Step 3 — Section Dashboard ───────────────────────────────────────────────
 
+// Day order for timetable display
+const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Periods per day for the full timetable grid
+const ALL_PERIODS = [1, 2, 3, 4, 5, 6];
+
 function DashboardView({ semester, section }) {
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [page, setPage]           = useState(1);
   const [search, setSearch]       = useState('');
-  const [ttOpen, setTtOpen]       = useState(false);
   const LIMIT = 50;
 
   const load = useCallback(async (p) => {
@@ -203,23 +208,169 @@ function DashboardView({ semester, section }) {
       )
     : students.data;
 
-  // Group timetable rows by day
-  const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const timetableByDay = DAY_ORDER.reduce((acc, day) => {
-    const slots = timetable.filter((t) => t.day === day);
-    if (slots.length) acc[day] = slots;
-    return acc;
-  }, {});
+  // Build a lookup map: { 'Monday-1': slot, ... } for the grid timetable
+  const ttMap = {};
+  timetable.forEach((t) => { ttMap[`${t.day}-${t.period}`] = t; });
+
+  // Which days actually have any data (to trim empty columns if no data at all)
+  const activeDays = timetable.length > 0
+    ? DAY_ORDER.filter((d) => timetable.some((t) => t.day === d))
+    : DAY_ORDER;
+
+  // Which periods are actually used
+  const usedPeriods = timetable.length > 0
+    ? ALL_PERIODS.filter((p) => timetable.some((t) => t.period === p))
+    : ALL_PERIODS;
 
   return (
     <div className="space-y-4">
 
-      {/* ── Summary cards (same style as original year-count cards) ─── */}
+      {/* ── Subject → Faculty mapping (always visible) ───────────────── */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+          <Link2 size={15} className="text-emerald-500" />
+          <span className="text-sm font-semibold text-gray-900 dark:text-white">Subject — Faculty Assignment</span>
+          <span className="text-xs text-gray-400">({subjectFacultyMapping.length} subjects)</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/30">
+                {['#', 'Subject', 'Code', 'Assigned Faculty'].map((h) => (
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+              {subjectFacultyMapping.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-5 py-12 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <Link2 size={24} className="text-gray-300 dark:text-gray-600" />
+                      <p className="text-sm text-gray-400 dark:text-gray-500">
+                        No subject-faculty assignments
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-600">
+                        Subject → Dr. A. Kumar<br />
+                        Subject → Prof. S. Sharma<br />
+                        Subject → Ms. P. Reddy
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                subjectFacultyMapping.map((m, i) => (
+                  <tr key={m.subjectCode} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/20 transition-colors">
+                    <td className="px-5 py-3 text-sm text-gray-400">{i + 1}</td>
+                    <td className="px-5 py-3 text-sm font-semibold text-gray-900 dark:text-white">{m.subject}</td>
+                    <td className="px-5 py-3">
+                      <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                        {m.subjectCode}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">{m.faculty}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Timetable grid (always visible) ──────────────────────────── */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+          <Clock size={15} className="text-amber-500" />
+          <span className="text-sm font-semibold text-gray-900 dark:text-white">Timetable</span>
+          <span className="text-xs text-gray-400">({timetable.length} slots)</span>
+        </div>
+        <div className="overflow-x-auto">
+          {timetable.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <div className="flex flex-col items-center gap-2">
+                <Clock size={24} className="text-gray-300 dark:text-gray-600" />
+                <p className="text-sm text-gray-400 dark:text-gray-500">
+                  No timetable configured
+                </p>
+                <div className="mt-2 text-xs text-gray-400 dark:text-gray-600 font-mono">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="border border-gray-200 dark:border-gray-700 rounded p-2">
+                      <div className="text-gray-500">Mon P1</div>
+                      <div className="text-gray-600">Subject</div>
+                    </div>
+                    <div className="border border-gray-200 dark:border-gray-700 rounded p-2">
+                      <div className="text-gray-500">Tue P2</div>
+                      <div className="text-gray-600">Subject</div>
+                    </div>
+                    <div className="border border-gray-200 dark:border-gray-700 rounded p-2">
+                      <div className="text-gray-500">Wed P3</div>
+                      <div className="text-gray-600">Subject</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-50/50 dark:bg-gray-700/30">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-r border-gray-100 dark:border-gray-700 w-28">
+                    Day
+                  </th>
+                  {usedPeriods.map((p) => (
+                    <th key={p} className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-r border-gray-100 dark:border-gray-700">
+                      Period {p}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {activeDays.map((day, di) => (
+                  <tr
+                    key={day}
+                    className={`${di % 2 === 0 ? '' : 'bg-gray-50/30 dark:bg-gray-700/10'} border-b border-gray-100 dark:border-gray-700 last:border-b-0`}
+                  >
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 border-r border-gray-100 dark:border-gray-700 whitespace-nowrap">
+                      {day}
+                    </td>
+                    {usedPeriods.map((period) => {
+                      const slot = ttMap[`${day}-${period}`];
+                      return (
+                        <td key={period} className="px-3 py-2 border-r border-gray-100 dark:border-gray-700 last:border-r-0 text-center">
+                          {slot ? (
+                            <div className="inline-flex flex-col items-center gap-0.5">
+                              <span className="text-xs font-semibold text-gray-900 dark:text-white leading-tight">
+                                {slot.subject}
+                              </span>
+                              <span className="text-xs font-mono text-indigo-500 dark:text-indigo-400">
+                                {slot.subjectCode}
+                              </span>
+                              <span className="text-xs text-gray-400 leading-tight">
+                                {slot.faculty}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* ── Summary cards ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Students',        value: students.pagination.total, sub: 'enrolled'        },
+          { label: 'Students',        value: students.pagination.total,    sub: 'enrolled'      },
           { label: 'Subjects',        value: subjectFacultyMapping.length, sub: 'this semester' },
-          { label: 'Timetable slots', value: timetable.length,           sub: 'per week'        },
+          { label: 'Timetable slots', value: timetable.length,             sub: 'per week'      },
         ].map(({ label, value, sub }) => (
           <div
             key={label}
@@ -232,100 +383,8 @@ function DashboardView({ semester, section }) {
         ))}
       </div>
 
-      {/* ── Timetable (collapsible) ───────────────────────────────────── */}
-      {timetable.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card overflow-hidden">
-          <button
-            onClick={() => setTtOpen(!ttOpen)}
-            className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Clock size={15} className="text-amber-500" />
-              <span className="text-sm font-semibold text-gray-900 dark:text-white">Timetable</span>
-              <span className="text-xs text-gray-400">({timetable.length} slots)</span>
-            </div>
-            <ChevronRight size={15} className={`text-gray-400 transition-transform ${ttOpen ? 'rotate-90' : ''}`} />
-          </button>
-
-          {ttOpen && (
-            <div className="border-t border-gray-100 dark:border-gray-700 overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/30">
-                    {['Day', 'Period', 'Subject', 'Faculty'].map((h) => (
-                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
-                  {Object.entries(timetableByDay).map(([day, slots]) =>
-                    slots.map((slot, idx) => (
-                      <tr key={`${day}-${slot.period}`} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/20 transition-colors">
-                        <td className="px-5 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                          {idx === 0 ? day : ''}
-                        </td>
-                        <td className="px-5 py-3">
-                          <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-                            {slot.period}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-sm text-gray-900 dark:text-white">
-                          {slot.subject}
-                          <span className="ml-2 text-xs font-mono text-gray-400">{slot.subjectCode}</span>
-                        </td>
-                        <td className="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">{slot.faculty}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Subject → Faculty mapping ─────────────────────────────────── */}
-      {subjectFacultyMapping.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card overflow-hidden">
-          <div className="flex items-center gap-2 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-            <Link2 size={15} className="text-emerald-500" />
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">Subject — Faculty Mapping</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/30">
-                  {['#', 'Subject', 'Code', 'Faculty'].map((h) => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
-                {subjectFacultyMapping.map((m, i) => (
-                  <tr key={m.subjectCode} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/20 transition-colors">
-                    <td className="px-5 py-3 text-sm text-gray-400">{i + 1}</td>
-                    <td className="px-5 py-3 text-sm font-semibold text-gray-900 dark:text-white">{m.subject}</td>
-                    <td className="px-5 py-3">
-                      <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                        {m.subjectCode}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">{m.faculty}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       {/* ── Student list table ────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card overflow-hidden">
-        {/* Table header row with search */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <Users size={15} className="text-indigo-500" />
@@ -398,7 +457,6 @@ function DashboardView({ semester, section }) {
           </table>
         </div>
 
-        {/* Pagination — only renders when totalPages > 1 */}
         {!search && (
           <Pagination
             pagination={{ ...students.pagination, page }}

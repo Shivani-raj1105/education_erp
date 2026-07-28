@@ -14,6 +14,7 @@ import CoordinatorManagement from './pages/hod/CoordinatorManagement';
 import ActivitiesPage from './pages/hod/activities/ActivitiesPage';
 import NotFound from './pages/NotFound';
 
+
 // Route guards
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, user } = useAuthStore();
